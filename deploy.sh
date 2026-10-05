@@ -42,4 +42,4 @@ echo "Доступы к UI (после того как сервисы подни
 echo "- Airflow: http://<ip_вашей_vm>:8081 (admin/admin)"
 echo "- Superset: http://<ip_вашей_vm>:8088 (admin/admin)"
 echo "- Spark Master: http://<ip_вашей_vm>:8080"
-echo "- MinIO (S3): http://<ip_вашей_vm>:9001 (minioadmin/minioadmin)"
+echo "- MinIO (S3): http://<ip_вашей_vm>:9091 (minioadmin/minioadmin)"
