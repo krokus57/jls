@@ -205,8 +205,8 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres/airflow
     command: >
       bash -c "
-      airflow db init &&
-      airflow users create --username admin --password admin --firstname Admin --lastname Admin --role Admin --email admin@example.com
+      airflow db migrate &&
+      airflow users create --username admin --password admin --firstname Admin --lastname Admin --role Admin --email admin@example.com || true
       "
     networks:
       - data-net
