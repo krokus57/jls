@@ -1,0 +1,10 @@
+clickhouse_profile:
+  target: dev
+  outputs:
+    dev:
+      type: clickhouse
+      schema: dbt_analytics # Where dbt will materialize views/tables
+      host: clickhouse
+      port: 8123
+      user: default
+      password: ""

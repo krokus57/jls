@@ -1,0 +1,243 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------
+  # 1. Zookeeper and Kafka
+  # ---------------------------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - data-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - data-net
+
+  # ---------------------------------------------
+  # 2. Python MQTT to Kafka Bridge
+  # ---------------------------------------------
+  mqtt-to-kafka:
+    build: ./mqtt_to_kafka
+    depends_on:
+      - kafka
+    environment:
+      - MQTT_BROKER=192.168.99.99
+      - MQTT_PORT=1803
+      - MQTT_USERNAME=rim@imarh.ru
+      - MQTT_PASSWORD=53d3add5
+      - MQTT_TOPIC=ha_to_node-red
+      - KAFKA_BROKER=kafka:29092
+      - KAFKA_TOPIC=raw_telemetry
+    networks:
+      - data-net
+
+  # ---------------------------------------------
+  # 3. MinIO (S3 Compatible Storage for Data Lake)
+  # ---------------------------------------------
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    networks:
+      - data-net
+
+  # Script to initialize S3 bucket automatically
+  minio-init:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb myminio/datalake || true;
+      "
+    networks:
+      - data-net
+
+  # ---------------------------------------------
+  # 4. Spark (Streaming and Batch)
+  # ---------------------------------------------
+  spark-master:
+    image: bitnami/spark:3.4
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    volumes:
+      - ./spark:/opt/spark/work-dir
+    networks:
+      - data-net
+
+  spark-worker:
+    image: bitnami/spark:3.4
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+    volumes:
+      - ./spark:/opt/spark/work-dir
+    networks:
+      - data-net
+
+  # This container submits the streaming job on startup
+  spark-streaming-submit:
+    image: bitnami/spark:3.4
+    depends_on:
+      - spark-master
+      - kafka
+      - minio-init
+    volumes:
+      - ./spark:/opt/spark/work-dir
+    command: >
+      spark-submit
+      --master spark://spark-master:7077
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.1,org.apache.hadoop:hadoop-aws:3.3.4
+      /opt/spark/work-dir/streaming_to_s3.py
+    environment:
+      - KAFKA_BROKER=kafka:29092
+    networks:
+      - data-net
+
+  # ---------------------------------------------
+  # 5. PostgreSQL (Operational DB & Metadata)
+  # ---------------------------------------------
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: airflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./init-db/postgres:/docker-entrypoint-initdb.d
+    networks:
+      - data-net
+
+  # ---------------------------------------------
+  # 6. ClickHouse (Analytical DB)
+  # ---------------------------------------------
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ch_data:/var/lib/clickhouse
+      - ./init-db/clickhouse:/docker-entrypoint-initdb.d
+    depends_on:
+      - postgres
+    networks:
+      - data-net
+
+  # ---------------------------------------------
+  # 7. Apache Airflow (Orchestrator)
+  # ---------------------------------------------
+  airflow-webserver:
+    build: ./airflow_docker
+    depends_on:
+      - postgres
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./spark:/opt/airflow/spark
+      - ./dbt_project:/opt/airflow/dbt_project
+    ports:
+      - "8081:8080"
+    command: webserver
+    networks:
+      - data-net
+
+  airflow-scheduler:
+    build: ./airflow_docker
+    depends_on:
+      - airflow-webserver
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres/airflow
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./spark:/opt/airflow/spark
+      - ./dbt_project:/opt/airflow/dbt_project
+    command: scheduler
+    networks:
+      - data-net
+
+  airflow-init:
+    build: ./airflow_docker
+    depends_on:
+      - postgres
+    environment:
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres/airflow
+    command: >
+      bash -c "
+      airflow db init &&
+      airflow users create --username admin --password admin --firstname Admin --lastname Admin --role Admin --email admin@example.com
+      "
+    networks:
+      - data-net
+
+  # ---------------------------------------------
+  # 8. Apache Superset (BI & Visualization)
+  # ---------------------------------------------
+  superset:
+    image: apache/superset:latest
+    ports:
+      - "8088:8088"
+    depends_on:
+      - postgres
+      - clickhouse
+    environment:
+      - SUPERSET_SECRET_KEY=yoursecretkey
+      - SQLALCHEMY_DATABASE_URI=postgresql://postgres:postgres@postgres/airflow
+    entrypoint: >
+      /bin/sh -c "
+      superset db upgrade &&
+      superset fab create-admin --username admin --firstname Superset --lastname Admin --email admin@superset.com --password admin &&
+      superset init &&
+      pip install clickhouse-connect &&
+      gunicorn -w 2 --timeout 120 -b 0.0.0.0:8088 'superset.app:create_app()'
+      "
+    networks:
+      - data-net
+
+volumes:
+  pg_data:
+  ch_data:
+  minio_data:
+
+networks:
+  data-net:
+    driver: bridge
