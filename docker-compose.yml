@@ -79,9 +79,8 @@ services:
   # 4. Spark (Streaming and Batch)
   # ---------------------------------------------
   spark-master:
-    image: bitnami/spark:3.4.4
-    environment:
-      - SPARK_MODE=master
+    image: apache/spark:3.4.4
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
     ports:
       - "8080:8080"
       - "7077:7077"
@@ -91,14 +90,10 @@ services:
       - data-net
 
   spark-worker:
-    image: bitnami/spark:3.4.4
+    image: apache/spark:3.4.4
     depends_on:
       - spark-master
-    environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_MEMORY=2G
-      - SPARK_WORKER_CORES=2
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077 -c 2 -m 2G
     volumes:
       - ./spark:/opt/spark/work-dir
     networks:
@@ -106,7 +101,7 @@ services:
 
   # This container submits the streaming job on startup
   spark-streaming-submit:
-    image: bitnami/spark:3.4.4
+    image: apache/spark:3.4.4
     depends_on:
       - spark-master
       - kafka
@@ -114,7 +109,7 @@ services:
     volumes:
       - ./spark:/opt/spark/work-dir
     command: >
-      spark-submit
+      /opt/spark/bin/spark-submit
       --master spark://spark-master:7077
       --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.1,org.apache.hadoop:hadoop-aws:3.3.4
       /opt/spark/work-dir/streaming_to_s3.py
