@@ -50,6 +50,7 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     payload = msg.payload.decode('utf-8')
+    logger.info(f"-> Received message from MQTT topic {msg.topic}: {payload}")
     try:
         # Try to parse as JSON, otherwise keep as raw string
         try:
@@ -63,9 +64,12 @@ def on_message(client, userdata, msg):
         }
 
         # Send to Kafka
-        producer.send(KAFKA_TOPIC, kafka_message)
+        future = producer.send(KAFKA_TOPIC, kafka_message)
+        # Block until sent to ensure delivery and catch errors
+        record_metadata = future.get(timeout=10)
+        logger.info(f"<- Successfully sent to Kafka partition {record_metadata.partition} at offset {record_metadata.offset}")
     except Exception as e:
-        logger.error(f"Error processing message: {e}")
+        logger.error(f"Error processing/sending message: {e}")
 
 if __name__ == "__main__":
     logger.info("Starting MQTT to Kafka bridge...")
