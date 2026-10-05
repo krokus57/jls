@@ -36,11 +36,11 @@ services:
     depends_on:
       - kafka
     environment:
-      - MQTT_BROKER=192.168.99.99
-      - MQTT_PORT=1803
-      - MQTT_USERNAME=rim@imarh.ru
-      - MQTT_PASSWORD=53d3add5
-      - MQTT_TOPIC=ha_to_node-red
+      - MQTT_BROKER=${MQTT_BROKER:-192.168.99.99}
+      - MQTT_PORT=${MQTT_PORT:-1803}
+      - MQTT_USERNAME=${MQTT_USERNAME:-rim@imarh.ru}
+      - MQTT_PASSWORD=${MQTT_PASSWORD:-}
+      - MQTT_TOPIC=${MQTT_TOPIC:-ha_to_node-red}
       - KAFKA_BROKER=kafka:29092
       - KAFKA_TOPIC=raw_telemetry
     networks:
@@ -165,6 +165,7 @@ services:
     build: ./airflow_docker
     depends_on:
       - postgres
+    restart: always
     environment:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
@@ -183,6 +184,7 @@ services:
     build: ./airflow_docker
     depends_on:
       - airflow-webserver
+    restart: always
     environment:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
