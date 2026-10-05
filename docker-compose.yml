@@ -167,6 +167,7 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__WEBSERVER__SECRET_KEY=a_very_secret_key_12345
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./spark:/opt/airflow/spark
@@ -186,6 +187,7 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__WEBSERVER__SECRET_KEY=a_very_secret_key_12345
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./spark:/opt/airflow/spark
@@ -200,6 +202,7 @@ services:
       - postgres
     environment:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres/airflow
+      - AIRFLOW__WEBSERVER__SECRET_KEY=a_very_secret_key_12345
     command: >
       bash -c "
       airflow db migrate &&
