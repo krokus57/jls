@@ -36,6 +36,23 @@ sudo usermod -aG docker $USER
 ```
 *(После добавления в группу docker нужно перезайти на сервер или выполнить `newgrp docker`)*
 
+**Возможная проблема (Ошибка скачивания образов):**
+Если при запуске вы получаете ошибку `pull access denied ... repository does not exist`, это значит, что ваш сервер не может скачать образы с Docker Hub (например, из-за сетевых блокировок).
+**Решение:** Настройте зеркало для Docker:
+
+```bash
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json <<EOF
+{
+  "registry-mirrors": [
+    "https://mirror.gcr.io",
+    "https://dockerhub.timeweb.cloud"
+  ]
+}
+EOF
+sudo systemctl restart docker
+```
+
 ## Как развернуть и обновлять код
 
 Для вашего удобства в корне проекта создан скрипт `deploy.sh`.
