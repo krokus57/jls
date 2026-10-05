@@ -34,6 +34,7 @@ services:
     build: ./mqtt_to_kafka
     depends_on:
       - kafka
+    restart: always
     environment:
       - MQTT_BROKER=${MQTT_BROKER:-192.168.99.99}
       - MQTT_PORT=${MQTT_PORT:-1803}
@@ -108,6 +109,7 @@ services:
       - spark-master
       - kafka
       - minio-init
+    restart: on-failure
     volumes:
       - ./spark:/opt/spark/work-dir
     command: >

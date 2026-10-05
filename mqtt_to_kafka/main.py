@@ -3,6 +3,7 @@ import json
 import logging
 import paho.mqtt.client as mqtt
 from kafka import KafkaProducer
+from kafka.errors import NoBrokersAvailable
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -35,7 +36,7 @@ while producer is None:
             batch_size=32768
         )
         logger.info("Successfully connected to Kafka!")
-    except Exception as e:
+    except (Exception, NoBrokersAvailable) as e:
         logger.warning(f"Kafka not ready yet: {e}. Retrying in 5 seconds...")
         time.sleep(5)
 
