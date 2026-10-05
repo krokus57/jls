@@ -23,6 +23,7 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     networks:
       - data-net
 
@@ -102,6 +103,7 @@ services:
   # This container submits the streaming job on startup
   spark-streaming-submit:
     image: apache/spark:3.4.4
+    user: "0" # Run as root to avoid IVY cache permission issues
     depends_on:
       - spark-master
       - kafka

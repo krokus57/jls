@@ -19,15 +19,25 @@ MQTT_TOPIC = os.getenv("MQTT_TOPIC", "#")
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:9092")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "raw_telemetry")
 
-# Initialize Kafka Producer
-# Using a producer with small linger_ms and compression for high throughput
-producer = KafkaProducer(
-    bootstrap_servers=[KAFKA_BROKER],
-    value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-    compression_type='gzip',
-    linger_ms=10, # batch small messages slightly
-    batch_size=32768
-)
+import time
+
+# Initialize Kafka Producer with retry logic
+# Kafka might take a few seconds to start up in docker-compose
+producer = None
+while producer is None:
+    try:
+        logger.info(f"Attempting to connect to Kafka at {KAFKA_BROKER}...")
+        producer = KafkaProducer(
+            bootstrap_servers=[KAFKA_BROKER],
+            value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+            compression_type='gzip',
+            linger_ms=10, # batch small messages slightly
+            batch_size=32768
+        )
+        logger.info("Successfully connected to Kafka!")
+    except Exception as e:
+        logger.warning(f"Kafka not ready yet: {e}. Retrying in 5 seconds...")
+        time.sleep(5)
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
