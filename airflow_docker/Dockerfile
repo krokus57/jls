@@ -19,5 +19,5 @@ USER airflow
 RUN pip install --no-cache-dir \
     apache-airflow-providers-apache-spark==4.1.3 \
     dbt-core==1.6.5 \
-    dbt-clickhouse==1.6.3 \
+    dbt-clickhouse==1.6.2 \
     pyspark==3.4.1

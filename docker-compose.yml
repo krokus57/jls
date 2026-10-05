@@ -79,7 +79,7 @@ services:
   # 4. Spark (Streaming and Batch)
   # ---------------------------------------------
   spark-master:
-    image: bitnami/spark:3.4
+    image: bitnami/spark:3.4.4
     environment:
       - SPARK_MODE=master
     ports:
@@ -91,7 +91,7 @@ services:
       - data-net
 
   spark-worker:
-    image: bitnami/spark:3.4
+    image: bitnami/spark:3.4.4
     depends_on:
       - spark-master
     environment:
@@ -106,7 +106,7 @@ services:
 
   # This container submits the streaming job on startup
   spark-streaming-submit:
-    image: bitnami/spark:3.4
+    image: bitnami/spark:3.4.4
     depends_on:
       - spark-master
       - kafka
@@ -147,7 +147,7 @@ services:
     image: clickhouse/clickhouse-server:latest
     ports:
       - "8123:8123"
-      - "9000:9000"
+      - "9090:9000"
     volumes:
       - ch_data:/var/lib/clickhouse
       - ./init-db/clickhouse:/docker-entrypoint-initdb.d
